@@ -1,0 +1,22 @@
+[project]
+name = "problox"
+version = "0.1.0"
+description = "Autonomous AI agent that designs, codes, and publishes Roblox experiences via the Open Cloud API"
+requires-python = ">=3.11"
+dependencies = [
+    "anthropic>=0.40.0",
+    "httpx>=0.27.0",
+    "pydantic>=2.7.0",
+    "click>=8.1.0",
+    "python-dotenv>=1.0.0",
+]
+
+[project.scripts]
+problox = "problox.cli:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["problox*"]

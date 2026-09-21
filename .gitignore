@@ -1,0 +1,9 @@
+.env
+build/
+.problox_state.json
+__pycache__/
+*.pyc
+.venv/
+*.egg-info/
+.rbxlx
+node_modules/
