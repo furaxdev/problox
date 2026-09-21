@@ -24,8 +24,13 @@ def build(out_dir: Path) -> Path:
         )
 
     output_path = out_dir / "place.rbxlx"
+    # -o reçoit juste le nom de fichier (pas out_dir/place.rbxlx) car le
+    # process tourne déjà avec cwd=out_dir — repasser le chemin complet ici
+    # le fait résoudre une deuxième fois relativement à ce cwd et double le
+    # préfixe (bug réel rencontré en prod avec un out_dir relatif, invisible
+    # avec un out_dir absolu comme en test local).
     result = subprocess.run(
-        ["rojo", "build", "default.project.json", "-o", str(output_path)],
+        ["rojo", "build", "default.project.json", "-o", output_path.name],
         cwd=out_dir,
         capture_output=True,
         text=True,
