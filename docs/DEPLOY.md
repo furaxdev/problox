@@ -1,5 +1,13 @@
 # Déployer ProbloxDev (Vercel + Render)
 
+> **État réel au 21/09** : les deux sont déployés et vérifiés de bout en
+> bout (voir `docs/STATUS.md` pour le détail).
+> - Backend Render (workspace **Plasma**) : https://probloxdev-api-h8pi.onrender.com
+> - Frontend Vercel (équipe **FuraxDev**) : https://probloxdev-furaxdev.vercel.app
+>
+> Ce qui suit reste la procédure de référence pour un redéploiement ou un
+> déploiement dans un autre compte/workspace.
+
 Deux déploiements séparés : le **site** (Next.js, statique + petites routes
 client) sur Vercel, l'**agent** (FastAPI, process long-running, build Rojo,
 appels Claude/Roblox) sur Render.
@@ -43,13 +51,15 @@ curl https://probloxdev-api.onrender.com/api/health
 ```
 
 Si `rojo`/`aftman` ne sont pas trouvés au runtime (`problox check` ou
-`/api/status` montre les tools à `false`), c'est que le `PATH` du process de
-démarrage ne pointe pas vers où `scripts/setup_sandbox.sh` a installé
-Aftman pendant le build — inspecte avec `render ssh <service>` où Aftman a
-atterri (`$HOME/.aftman/bin`) et ajuste la variable d'env `PATH` dans
-`render.yaml` en conséquence (je n'ai pas pu valider ce chemin exact sans
-compte Render réel — c'est la seule partie de ce déploiement non testée
-en conditions réelles).
+`/api/status` montre les tools à `false`) : c'est que `AFTMAN_ROOT` n'est pas
+défini, ou pointe encore vers `$HOME` plutôt que dans le checkout du repo.
+**Vérifié en conditions réelles** : sur Render, `$HOME` (`/opt/render`)
+n'est *pas* persisté entre le build et le runtime — seul le checkout du repo
+(`/opt/render/project/src`) l'est. `render.yaml` définit donc
+`AFTMAN_ROOT=/opt/render/project/src/.aftman` et `startCommand` utilise
+`$AFTMAN_ROOT/bin` plutôt que `$HOME/.aftman/bin`. Si tu changes de
+plateforme (Railway, Fly...), vérifie où le filesystem est réellement
+persisté entre build et run avant de copier cette valeur telle quelle.
 
 ## 2. Frontend sur Vercel
 

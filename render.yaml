@@ -29,7 +29,10 @@ services:
       - key: ROBLOX_OAUTH_CLIENT_SECRET
         sync: false
       - key: ROBLOX_OAUTH_REDIRECT_URI
-        value: "https://probloxdev-api.onrender.com/api/auth/roblox/callback"  # adapte à l'URL réellement assignée par Render (visible après création)
+        # URL réellement assignée par Render au premier déploiement (le nom
+        # "probloxdev-api" était pris ailleurs dans le compte, d'où le
+        # suffixe) — adapte si tu redéploies dans un autre workspace.
+        value: "https://probloxdev-api-h8pi.onrender.com/api/auth/roblox/callback"
       - key: FRONTEND_URL
         value: "https://probloxdev.vercel.app"
       - key: ALLOWED_ORIGINS
