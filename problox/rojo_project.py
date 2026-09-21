@@ -11,6 +11,10 @@ class RojoNotFoundError(RuntimeError):
     pass
 
 
+class RojoBuildError(RuntimeError):
+    pass
+
+
 def build(out_dir: Path) -> Path:
     """Exécute `rojo build default.project.json -o place.rbxlx` dans out_dir."""
     if shutil.which("rojo") is None:
@@ -20,11 +24,15 @@ def build(out_dir: Path) -> Path:
         )
 
     output_path = out_dir / "place.rbxlx"
-    subprocess.run(
+    result = subprocess.run(
         ["rojo", "build", "default.project.json", "-o", str(output_path)],
         cwd=out_dir,
-        check=True,
+        capture_output=True,
+        text=True,
     )
+    if result.returncode != 0:
+        detail = (result.stderr or result.stdout or "(pas de sortie)").strip()
+        raise RojoBuildError(f"`rojo build` a échoué:\n{detail}")
     return output_path
 
 

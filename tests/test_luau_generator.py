@@ -38,4 +38,16 @@ def test_generate_writes_expected_files(tmp_path: Path):
     assert "Speed" in shop
 
     assert (out_dir / "default.project.json").exists()
-    assert (out_dir / "src" / "ReplicatedStorage" / "GameDesign.luau").exists()
+    game_design_luau = (out_dir / "src" / "ReplicatedStorage" / "GameDesign.luau").read_text()
+    assert 'title = "Test Rush"' in game_design_luau
+    # Régression: json.dumps() produit `"clé": valeur`, invalide en Luau
+    # (Luau veut `clé = valeur`) — a fait planter `rojo build` en prod.
+    assert '": ' not in game_design_luau
+
+    assert (out_dir / "selene.toml").read_text() == 'std = "roblox"\n'
+
+
+def test_to_luau_literal_escapes_and_formats():
+    assert luau_generator._to_luau_literal({"a": 1, "b": "x\"y"}) == '{a = 1, b = "x\\"y"}'
+    assert luau_generator._to_luau_literal([1, "two", True, None]) == '{1, "two", true, nil}'
+    assert luau_generator._to_luau_literal({"weird-key": 1}) == '{["weird-key"] = 1}'
