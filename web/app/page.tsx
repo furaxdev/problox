@@ -2,16 +2,22 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, GameDesign, Me } from "@/lib/api";
+import { Sidebar } from "@/components/Sidebar";
+import { SettingsModal } from "@/components/SettingsModal";
+import {
+  ChatRecord,
+  ProjectRecord,
+  StoredTurn,
+  createProject,
+  deleteChat as deleteStoredChat,
+  deleteProject as deleteStoredProject,
+  loadChats,
+  loadProjects,
+  newChatId,
+  saveChat,
+} from "@/lib/store";
 
-type Turn = {
-  id: string;
-  userText: string;
-  status: "running" | "done" | "error";
-  logLines: string[];
-  design: GameDesign | null;
-  buildAvailable: boolean;
-  error: string | null;
-};
+type Turn = StoredTurn;
 
 const SUGGESTIONS = [
   "Tycoon spatial avec des usines",
@@ -42,7 +48,7 @@ function AccountChip({ me, loading }: { me: Me | null; loading: boolean }) {
 }
 
 function ResultCard({ turn }: { turn: Turn }) {
-  const d = turn.design;
+  const d = turn.design as unknown as GameDesign | null;
   if (!d) return null;
   return (
     <div className="result-card">
@@ -91,9 +97,7 @@ function AssistantTurn({ turn }: { turn: Turn }) {
           {turn.status === "running" ? "génération…" : turn.status === "done" ? "terminé" : "erreur"}
         </span>
       </div>
-      {turn.logLines.length > 0 && (
-        <div className="log-block">{turn.logLines.join("\n")}</div>
-      )}
+      {turn.logLines.length > 0 && <div className="log-block">{turn.logLines.join("\n")}</div>}
       {turn.error && <p className="error-text">{turn.error}</p>}
       {turn.status === "done" && <ResultCard turn={turn} />}
     </div>
@@ -108,8 +112,16 @@ export default function Home() {
   const [autonomous, setAutonomous] = useState(false);
   const [cooldownHint, setCooldownHint] = useState("");
 
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [chats, setChats] = useState<ChatRecord[]>([]);
+  const [projects, setProjects] = useState<ProjectRecord[]>([]);
+  const [activeChatId, setActiveChatId] = useState<string | null>(null);
+  const [archived, setArchived] = useState(false);
+
   const offsetRef = useRef(0);
   const pollingRef = useRef(false);
+  const activeChatIdRef = useRef<string | null>(null);
   const conversationEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -118,11 +130,25 @@ export default function Home() {
       .then(setMe)
       .catch(() => setMe(null))
       .finally(() => setMeLoading(false));
+    setChats(loadChats());
+    setProjects(loadProjects());
+    if (typeof window !== "undefined" && window.innerWidth >= 900) setSidebarOpen(true);
   }, []);
 
   useEffect(() => {
     conversationEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [turns]);
+
+  const persist = useCallback((id: string, snapshot: Turn[], title: string) => {
+    saveChat({
+      id,
+      title,
+      createdAt: Date.now(),
+      projectId: null,
+      turns: snapshot.map((t) => ({ ...t, logLines: t.logLines.slice(-200) })),
+    });
+    setChats(loadChats());
+  }, []);
 
   const patchLastTurn = useCallback((patch: Partial<Turn>) => {
     setTurns((prev) => {
@@ -144,36 +170,47 @@ export default function Home() {
     });
   }, []);
 
-  const poll = useCallback(async () => {
-    if (pollingRef.current) return;
-    pollingRef.current = true;
-    try {
-      while (true) {
-        const [status, logs] = await Promise.all([api.status(), api.logs(offsetRef.current)]);
-        if (logs.lines.length) {
-          appendLogLines(logs.lines);
-          offsetRef.current = logs.offset;
-        }
-        if (status.run.status !== "running") {
-          if (status.run.status === "error") {
-            patchLastTurn({ status: "error", error: status.run.error || "Erreur inconnue" });
-          } else {
-            let design: GameDesign | null = null;
-            try {
-              design = await api.design();
-            } catch {
-              /* pas de design si le run a échoué très tôt */
-            }
-            patchLastTurn({ status: "done", design, buildAvailable: status.build_available });
+  const poll = useCallback(
+    async (chatId: string, title: string) => {
+      if (pollingRef.current) return;
+      pollingRef.current = true;
+      try {
+        while (true) {
+          const [status, logs] = await Promise.all([api.status(), api.logs(offsetRef.current)]);
+          if (logs.lines.length) {
+            appendLogLines(logs.lines);
+            offsetRef.current = logs.offset;
           }
-          break;
+          if (status.run.status !== "running") {
+            if (status.run.status === "error") {
+              patchLastTurn({ status: "error", error: status.run.error || "Erreur inconnue" });
+            } else {
+              let design: GameDesign | null = null;
+              try {
+                design = await api.design();
+              } catch {
+                /* pas de design si le run a échoué très tôt */
+              }
+              patchLastTurn({
+                status: "done",
+                design: design as unknown as Record<string, unknown> | null,
+                buildAvailable: status.build_available,
+              });
+            }
+            break;
+          }
+          await new Promise((r) => setTimeout(r, 1200));
         }
-        await new Promise((r) => setTimeout(r, 1200));
+      } finally {
+        pollingRef.current = false;
+        setTurns((current) => {
+          if (activeChatIdRef.current === chatId) persist(chatId, current, title);
+          return current;
+        });
       }
-    } finally {
-      pollingRef.current = false;
-    }
-  }, [appendLogLines, patchLastTurn]);
+    },
+    [appendLogLines, patchLastTurn, persist]
+  );
 
   const send = useCallback(
     async (theme: string) => {
@@ -181,10 +218,19 @@ export default function Home() {
       if (!text || pollingRef.current) return;
       setInput("");
       setCooldownHint("");
+      setArchived(false);
+
+      let chatId = activeChatIdRef.current;
+      if (!chatId) {
+        chatId = newChatId();
+        activeChatIdRef.current = chatId;
+        setActiveChatId(chatId);
+      }
+      const title = text.length > 46 ? `${text.slice(0, 46)}…` : text;
+
       setTurns((prev) => [
         ...prev,
         {
-          id: `${Date.now()}`,
           userText: text,
           status: "running",
           logLines: [],
@@ -195,7 +241,7 @@ export default function Home() {
       ]);
       try {
         await api.run(text, autonomous, autonomous ? 3 : 1);
-        poll();
+        poll(chatId, title);
       } catch (err) {
         const message = err instanceof Error ? err.message : "Erreur inconnue";
         patchLastTurn({ status: "error", error: message });
@@ -205,17 +251,67 @@ export default function Home() {
     [autonomous, poll, patchLastTurn]
   );
 
+  const handleNewChat = useCallback(() => {
+    activeChatIdRef.current = null;
+    setActiveChatId(null);
+    setTurns([]);
+    setArchived(false);
+    offsetRef.current = 0;
+    if (typeof window !== "undefined" && window.innerWidth < 900) setSidebarOpen(false);
+  }, []);
+
+  const handleSelectChat = useCallback(
+    (id: string) => {
+      const chat = chats.find((c) => c.id === id);
+      if (!chat) return;
+      activeChatIdRef.current = id;
+      setActiveChatId(id);
+      setTurns(chat.turns);
+      setArchived(true);
+      if (typeof window !== "undefined" && window.innerWidth < 900) setSidebarOpen(false);
+    },
+    [chats]
+  );
+
+  const handleDeleteChat = useCallback(
+    (id: string) => {
+      deleteStoredChat(id);
+      setChats(loadChats());
+      if (activeChatIdRef.current === id) handleNewChat();
+    },
+    [handleNewChat]
+  );
+
+  const handleCreateProject = useCallback(() => {
+    const name = typeof window !== "undefined" ? window.prompt("Nom du projet ?") : null;
+    if (!name || !name.trim()) return;
+    createProject(name.trim());
+    setProjects(loadProjects());
+  }, []);
+
+  const handleDeleteProject = useCallback((id: string) => {
+    deleteStoredProject(id);
+    setProjects(loadProjects());
+    setChats(loadChats());
+  }, []);
+
   const started = turns.length > 0;
   const busy = turns.length > 0 && turns[turns.length - 1].status === "running";
+  const inputDisabled = busy || archived;
 
   const composer = (
     <div className={`composer-wrap ${started ? "" : "floating"}`}>
+      {archived && (
+        <p className="composer-hint" style={{ color: "var(--warn)" }}>
+          Conversation archivée (lecture seule) — clique &quot;Nouveau chat&quot; pour continuer.
+        </p>
+      )}
       <div className="composer">
         <textarea
           rows={1}
           placeholder="Décris le jeu Roblox que tu veux créer…"
           value={input}
-          disabled={busy}
+          disabled={inputDisabled}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.shiftKey) {
@@ -233,7 +329,7 @@ export default function Home() {
           >
             {autonomous ? "Auto ✓" : "Auto"}
           </button>
-          <button className="send-btn" disabled={busy || !input.trim()} onClick={() => send(input)}>
+          <button className="send-btn" disabled={inputDisabled || !input.trim()} onClick={() => send(input)}>
             {busy ? <span className="spinner" /> : "↑"}
           </button>
         </div>
@@ -252,51 +348,79 @@ export default function Home() {
   );
 
   return (
-    <div className="app-shell">
-      <div className="topbar">
-        <a className="brand" href="/">
-          <img src="/icon.svg" alt="" />
-          <span>
-            Problox<b>Dev</b>
-          </span>
-        </a>
-        <AccountChip me={me} loading={meLoading} />
+    <div className="page-root">
+      <Sidebar
+        open={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+        chats={chats}
+        projects={projects}
+        activeChatId={activeChatId}
+        onNewChat={handleNewChat}
+        onSelectChat={handleSelectChat}
+        onDeleteChat={handleDeleteChat}
+        onCreateProject={handleCreateProject}
+        onDeleteProject={handleDeleteProject}
+        onOpenSettings={() => setSettingsOpen(true)}
+      />
+
+      <div className="app-shell">
+        <div className="topbar">
+          <div className="topbar-left">
+            <button
+              className="hamburger-btn"
+              onClick={() => setSidebarOpen((v) => !v)}
+              aria-label="Menu"
+              title="Menu"
+            >
+              ☰
+            </button>
+            <a className="brand" href="/">
+              <img src="/icon.svg" alt="" />
+              <span>
+                Problox<b>Dev</b>
+              </span>
+            </a>
+          </div>
+          <AccountChip me={me} loading={meLoading} />
+        </div>
+
+        {!started ? (
+          <div className="hero-wrap">
+            <div className="hero-inner">
+              <h1>Quel jeu Roblox on construit ?</h1>
+              <p className="sub">
+                Décris l&apos;idée, l&apos;agent conçoit une boucle de jeu addictive, écrit le
+                code Luau, et publie directement sur ton expérience — via ton propre compte.
+              </p>
+              {composer}
+              <div className="chips">
+                {SUGGESTIONS.map((s) => (
+                  <button key={s} className="chip" onClick={() => send(s)}>
+                    {s}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        ) : (
+          <>
+            <div className="conversation">
+              <div className="conversation-inner">
+                {turns.map((t, i) => (
+                  <div key={i} style={{ display: "contents" }}>
+                    <div className="msg-user">{t.userText}</div>
+                    <AssistantTurn turn={t} />
+                  </div>
+                ))}
+                <div ref={conversationEndRef} />
+              </div>
+            </div>
+            {composer}
+          </>
+        )}
       </div>
 
-      {!started ? (
-        <div className="hero-wrap">
-          <div className="hero-inner">
-            <h1>Quel jeu Roblox on construit ?</h1>
-            <p className="sub">
-              Décris l&apos;idée, l&apos;agent conçoit une boucle de jeu addictive, écrit le
-              code Luau, et publie directement sur ton expérience — via ton propre compte.
-            </p>
-            {composer}
-            <div className="chips">
-              {SUGGESTIONS.map((s) => (
-                <button key={s} className="chip" onClick={() => send(s)}>
-                  {s}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      ) : (
-        <>
-          <div className="conversation">
-            <div className="conversation-inner">
-              {turns.map((t) => (
-                <div key={t.id} style={{ display: "contents" }}>
-                  <div className="msg-user">{t.userText}</div>
-                  <AssistantTurn turn={t} />
-                </div>
-              ))}
-              <div ref={conversationEndRef} />
-            </div>
-          </div>
-          {composer}
-        </>
-      )}
+      {settingsOpen && <SettingsModal me={me} onClose={() => setSettingsOpen(false)} />}
     </div>
   );
 }
