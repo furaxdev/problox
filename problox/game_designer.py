@@ -10,6 +10,7 @@ ligne / en démo.
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from typing import Any
 
 from anthropic import Anthropic
@@ -208,7 +209,12 @@ def _fallback_design(theme: str) -> GameDesign:
     )
 
 
-def design(theme: str, anthropic_api_key: str | None, previous: dict | None = None) -> GameDesign:
+def design(
+    theme: str,
+    anthropic_api_key: str | None,
+    previous: dict | None = None,
+    log: Callable[[str], None] = lambda _msg: None,
+) -> GameDesign:
     if not anthropic_api_key:
         return _fallback_design(theme)
 
@@ -223,12 +229,19 @@ def design(theme: str, anthropic_api_key: str | None, previous: dict | None = No
             f"nouvelle mécanique cohérente) :\n{json.dumps(previous, ensure_ascii=False)}\n"
         )
 
-    response = client.messages.create(
-        model="claude-opus-5",
-        max_tokens=2000,
-        system=SYSTEM_PROMPT,
-        messages=[{"role": "user", "content": user_prompt}],
-    )
-    text = "".join(block.text for block in response.content if block.type == "text")
-    data = json.loads(text)
-    return GameDesign.model_validate(data)
+    try:
+        response = client.messages.create(
+            model="claude-opus-5",
+            max_tokens=2000,
+            system=SYSTEM_PROMPT,
+            messages=[{"role": "user", "content": user_prompt}],
+        )
+        text = "".join(block.text for block in response.content if block.type == "text")
+        data = json.loads(text)
+        return GameDesign.model_validate(data)
+    except Exception as exc:  # noqa: BLE001 - un run public ne doit pas mourir sur un aléa d'API
+        log(
+            f"Claude a échoué ({exc.__class__.__name__}: {exc}) — repli sur le "
+            "design starter kit pour cette itération."
+        )
+        return _fallback_design(theme)

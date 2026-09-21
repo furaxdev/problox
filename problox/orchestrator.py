@@ -43,7 +43,7 @@ def run(
         log(f"=== Itération {i + 1}/{iterations} ===")
         previous_design = state.design_history[-1] if state.design_history else None
 
-        design = game_designer.design(theme, config.anthropic_api_key, previous=previous_design)
+        design = game_designer.design(theme, config.anthropic_api_key, previous=previous_design, log=log)
         log(f"Design: {design.title} ({design.genre})")
 
         luau_generator.generate(design, build_dir)

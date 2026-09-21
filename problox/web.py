@@ -41,11 +41,13 @@ CONFIG = load_config()
 # Un cookie `Secure` n'est JAMAIS renvoyé par un client HTTP correct sur une
 # connexion http:// en clair — seulement https://. En prod (Vercel<->Render,
 # cross-site) il faut Secure+SameSite=None. En dev local (`problox web` sur
-# http://127.0.0.1) Secure casserait silencieusement toute la session : rien
-# n'indique l'erreur, le cookie est juste ignoré au retour (bug réel trouvé
-# en écrivant les tests de ce fichier). ALLOWED_ORIGINS n'est renseigné qu'en
-# déploiement réel, d'où son usage comme signal ici.
-_COOKIE_SECURE = bool(CONFIG.allowed_origins)
+# http://127.0.0.1, ou ALLOWED_ORIGINS pointé sur un http://localhost:xxxx
+# pour tester le frontend en local) Secure casserait silencieusement toute
+# la session : rien n'indique l'erreur, le cookie est juste ignoré au retour
+# (bug réel trouvé en écrivant les tests de ce fichier). On se base sur le
+# schéma des origines autorisées plutôt que leur simple présence: avoir du
+# CORS configuré ne veut pas dire qu'on est en HTTPS.
+_COOKIE_SECURE = any(o.startswith("https://") for o in CONFIG.allowed_origins)
 _COOKIE_SAMESITE = "none" if _COOKIE_SECURE else "lax"
 
 SESSIONS_DIR = Path("sessions")
