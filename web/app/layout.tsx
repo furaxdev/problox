@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 const DESCRIPTION =
-  "Agent IA autonome qui crée des jeux Roblox — connecte ton compte, lance-le.";
+  "Décris le jeu Roblox que tu veux, l'agent le conçoit, l'écrit et le publie sur ton compte.";
 
 export const metadata: Metadata = {
   title: "ProbloxDev",
@@ -20,19 +20,13 @@ export const metadata: Metadata = {
 };
 
 export const viewport = {
-  themeColor: "#0b0d12",
+  themeColor: "#09090b",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="fr">
-      <body>
-        <header>
-          <h1>Problox<span>Dev</span></h1>
-          <span className="tag">agent IA pour la création de jeux Roblox</span>
-        </header>
-        {children}
-      </body>
+      <body>{children}</body>
     </html>
   );
 }

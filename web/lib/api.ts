@@ -29,6 +29,19 @@ export type Status = {
   build_available: boolean;
 };
 
+export type GameDesign = {
+  title: string;
+  genre: string;
+  core_loop: string;
+  systems: Array<{ name: string; description: string }>;
+  monetization: {
+    currency_name: string;
+    gamepasses: Array<{ name: string; effect: string; suggested_price_robux: number }>;
+  };
+  zones_or_levels: Array<{ name: string; description: string }>;
+  retention_hooks: string[];
+};
+
 export const api = {
   apiUrl: API_URL,
   loginUrl: () => `${API_URL}/api/auth/roblox/login`,
@@ -36,7 +49,7 @@ export const api = {
   me: () => apiFetch<Me>("/api/me"),
   status: () => apiFetch<Status>("/api/status"),
   logs: (offset: number) => apiFetch<{ lines: string[]; offset: number }>(`/api/logs?offset=${offset}`),
-  design: () => apiFetch<Record<string, unknown>>("/api/design"),
+  design: () => apiFetch<GameDesign>("/api/design"),
   run: (theme: string, autonomous: boolean, maxIterations: number) =>
     apiFetch<{ started: boolean }>("/api/run", {
       method: "POST",
