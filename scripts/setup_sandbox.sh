@@ -39,7 +39,11 @@ EOF
 fi
 
 echo "-- Installation des outils déclarés dans aftman.toml --"
-aftman install
+# --no-trust-check: nécessaire en environnement non-interactif (CI/Render) —
+# sans ça, Aftman demande une confirmation manuelle pour chaque outil jamais
+# installé sur la machine. Les versions sont épinglées ci-dessus, donc pas de
+# risque de dérive silencieuse.
+aftman install --no-trust-check
 
 echo "-- Installation des dépendances Python (Problox) --"
 python3 -m pip install --break-system-packages -e .
