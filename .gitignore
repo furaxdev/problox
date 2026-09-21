@@ -1,5 +1,7 @@
 .env
+.env.local
 build/
+sessions/
 .problox_state.json
 __pycache__/
 *.pyc
@@ -7,3 +9,6 @@ __pycache__/
 *.egg-info/
 .rbxlx
 node_modules/
+.next/
+out/
+.vercel/

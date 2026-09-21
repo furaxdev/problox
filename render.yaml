@@ -1,0 +1,31 @@
+# Blueprint Render pour le backend ProbloxDev (API FastAPI).
+# Déploiement: `render blueprint launch` (CLI) ou "New > Blueprint" dans le
+# dashboard Render en pointant sur ce repo. Voir docs/DEPLOY.md.
+services:
+  - type: web
+    name: probloxdev-api
+    runtime: python
+    plan: starter
+    region: frankfurt
+    buildCommand: "./scripts/setup_sandbox.sh"
+    startCommand: "uvicorn problox.web:app --host 0.0.0.0 --port $PORT"
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11.9"
+      - key: PATH
+        value: "/opt/render/.aftman/bin:/usr/local/bin:/usr/bin:/bin"
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: ROBLOX_OAUTH_CLIENT_ID
+        sync: false
+      - key: ROBLOX_OAUTH_CLIENT_SECRET
+        sync: false
+      - key: ROBLOX_OAUTH_REDIRECT_URI
+        value: "https://probloxdev-api.onrender.com/api/auth/roblox/callback"
+      - key: FRONTEND_URL
+        value: "https://probloxdev.vercel.app"
+      - key: ALLOWED_ORIGINS
+        value: "https://probloxdev.vercel.app"
+    healthCheckPath: /api/health

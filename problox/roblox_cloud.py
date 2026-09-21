@@ -19,15 +19,39 @@ class RobloxCloudError(RuntimeError):
 
 
 class RobloxCloudClient:
-    def __init__(self, api_key: str, universe_id: str, place_id: str, min_seconds_between_calls: float = 1.0):
+    """Deux modes d'authentification:
+
+    - `api_key=...` : clé Open Cloud statique (usage local/CLI, un seul
+      compte, portée définie à la création de la clé).
+    - `bearer_token=...` : access token OAuth (usage web multi-utilisateurs,
+      portée limitée aux ressources choisies par l'utilisateur au moment du
+      consentement — voir roblox_oauth.py).
+    """
+
+    def __init__(
+        self,
+        universe_id: str,
+        place_id: str,
+        api_key: str | None = None,
+        bearer_token: str | None = None,
+        min_seconds_between_calls: float = 1.0,
+    ):
+        if not api_key and not bearer_token:
+            raise ValueError("api_key ou bearer_token requis")
         self._api_key = api_key
+        self._bearer_token = bearer_token
         self.universe_id = universe_id
         self.place_id = place_id
         self._min_interval = min_seconds_between_calls
         self._last_call = 0.0
 
     def _headers(self, content_type: str = "application/json") -> dict:
-        return {"x-api-key": self._api_key, "Content-Type": content_type}
+        headers = {"Content-Type": content_type}
+        if self._bearer_token:
+            headers["Authorization"] = f"Bearer {self._bearer_token}"
+        else:
+            headers["x-api-key"] = self._api_key
+        return headers
 
     def _throttle(self) -> None:
         elapsed = time.monotonic() - self._last_call
@@ -63,3 +87,16 @@ class RobloxCloudClient:
         if response.status_code >= 400:
             raise RobloxCloudError(f"Get universe failed ({response.status_code}): {response.text}")
         return response.json()
+
+
+def list_universe_places(bearer_token: str, universe_id: str) -> list[dict]:
+    """Liste les places d'un univers (nécessaire car OAuth n'autorise que
+    l'univers ; il faut ensuite savoir quelle placeId cibler pour publier)."""
+    response = httpx.get(
+        f"{BASE_URL}/cloud/v2/universes/{universe_id}/places",
+        headers={"Authorization": f"Bearer {bearer_token}"},
+        timeout=30.0,
+    )
+    if response.status_code >= 400:
+        raise RobloxCloudError(f"List places failed ({response.status_code}): {response.text}")
+    return response.json().get("places", [])
