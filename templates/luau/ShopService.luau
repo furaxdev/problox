@@ -1,6 +1,5 @@
 -- ShopService : boutique de gamepasses (monétisation Robux via MarketplaceService).
 local MarketplaceService = game:GetService("MarketplaceService")
-local Players = game:GetService("Players")
 
 local ShopService = {}
 
@@ -8,6 +7,10 @@ local ShopService = {}
 -- réel à créer manuellement une fois sur create.roblox.com, Open Cloud ne
 -- permet pas encore la création de gamepass par API).
 local GAMEPASSES = {{GAMEPASSES_TABLE}}
+
+function ShopService.ListGamepasses()
+	return GAMEPASSES
+end
 
 function ShopService.OwnsGamepass(player: Player, gamepassId: number): boolean
 	local ok, owns = pcall(function()

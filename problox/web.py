@@ -18,6 +18,7 @@ import logging
 import secrets
 import shutil
 import threading
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -36,9 +37,22 @@ logger = logging.getLogger("problox")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 
 CONFIG = load_config()
+
+# Un cookie `Secure` n'est JAMAIS renvoyé par un client HTTP correct sur une
+# connexion http:// en clair — seulement https://. En prod (Vercel<->Render,
+# cross-site) il faut Secure+SameSite=None. En dev local (`problox web` sur
+# http://127.0.0.1) Secure casserait silencieusement toute la session : rien
+# n'indique l'erreur, le cookie est juste ignoré au retour (bug réel trouvé
+# en écrivant les tests de ce fichier). ALLOWED_ORIGINS n'est renseigné qu'en
+# déploiement réel, d'où son usage comme signal ici.
+_COOKIE_SECURE = bool(CONFIG.allowed_origins)
+_COOKIE_SAMESITE = "none" if _COOKIE_SECURE else "lax"
+
 SESSIONS_DIR = Path("sessions")
 COOKIE_NAME = "problox_session"
 COOKIE_MAX_AGE = 60 * 60 * 24 * 30  # 30 jours
+SESSION_IDLE_TTL = 60 * 60 * 2  # 2h sans activité -> la session est purgée
+RUN_COOLDOWN_SECONDS = 15  # anti-abus: espace mini entre deux runs par session
 
 _serializer = URLSafeTimedSerializer(CONFIG.session_secret or secrets.token_urlsafe(32))
 
@@ -89,6 +103,8 @@ class SessionData:
     run_theme: str | None = None
     run_error: str | None = None
     logs: _LogBuffer = field(default_factory=_LogBuffer)
+    last_seen: float = field(default_factory=time.monotonic)
+    last_run_at: float = 0.0
     _lock: threading.Lock = field(default_factory=threading.Lock)
 
     @property
@@ -103,14 +119,20 @@ class SessionData:
     def connected(self) -> bool:
         return self.tokens is not None
 
-    def start_run(self, theme: str) -> bool:
+    def start_run(self, theme: str) -> tuple[bool, float]:
+        """Retourne (ok, secondes_a_attendre). ok=False sans raison temporelle
+        (secondes=0) signifie qu'un run est déjà en cours."""
         with self._lock:
             if self.run_status == "running":
-                return False
+                return False, 0.0
+            elapsed = time.monotonic() - self.last_run_at
+            if elapsed < RUN_COOLDOWN_SECONDS:
+                return False, RUN_COOLDOWN_SECONDS - elapsed
             self.run_status = "running"
             self.run_theme = theme
             self.run_error = None
-            return True
+            self.last_run_at = time.monotonic()
+            return True, 0.0
 
     def finish_run(self, error: str | None = None) -> None:
         with self._lock:
@@ -132,7 +154,9 @@ def _get_or_create_session(session_cookie: str | None, response: Response) -> Se
 
     with _sessions_lock:
         if session_id and session_id in _sessions:
-            return _sessions[session_id]
+            existing = _sessions[session_id]
+            existing.last_seen = time.monotonic()
+            return existing
 
         session_id = secrets.token_urlsafe(24)
         session = SessionData(session_id=session_id)
@@ -144,10 +168,34 @@ def _get_or_create_session(session_cookie: str | None, response: Response) -> Se
         signed,
         max_age=COOKIE_MAX_AGE,
         httponly=True,
-        secure=True,
-        samesite="none",
+        secure=_COOKIE_SECURE,
+        samesite=_COOKIE_SAMESITE,
     )
     return session
+
+
+def _reap_idle_sessions() -> None:
+    """Purge les sessions inactives depuis plus de SESSION_IDLE_TTL — sans ça,
+    sessions/ grossit sans limite sur une instance longue durée (chaque run
+    laisse un dossier build/ derrière lui). Ne touche jamais un run en cours."""
+    while True:
+        time.sleep(600)
+        now = time.monotonic()
+        with _sessions_lock:
+            stale = [
+                sid
+                for sid, s in _sessions.items()
+                if s.run_status != "running" and (now - s.last_seen) > SESSION_IDLE_TTL
+            ]
+            for sid in stale:
+                del _sessions[sid]
+        for sid in stale:
+            shutil.rmtree(SESSIONS_DIR / sid, ignore_errors=True)
+        if stale:
+            logger.info("Sessions purgées (inactives >%ds): %d", SESSION_IDLE_TTL, len(stale))
+
+
+threading.Thread(target=_reap_idle_sessions, daemon=True).start()
 
 
 def _oauth_app() -> roblox_oauth.OAuthApp:
@@ -323,7 +371,14 @@ def start_run(
     session = _get_or_create_session(problox_session, response)
     if not req.theme.strip():
         raise HTTPException(400, "Thème vide.")
-    if not session.start_run(req.theme):
+    ok, wait_seconds = session.start_run(req.theme)
+    if not ok:
+        if wait_seconds > 0:
+            raise HTTPException(
+                429,
+                f"Merci d'attendre encore {wait_seconds:.0f}s avant de relancer un run (anti-abus).",
+                headers={"Retry-After": str(int(wait_seconds) + 1)},
+            )
         raise HTTPException(409, "Un run est déjà en cours pour cette session.")
     thread = threading.Thread(target=_run_in_background, args=(session, req), daemon=True)
     thread.start()
@@ -384,3 +439,13 @@ def download_build(response: Response, problox_session: str | None = Cookie(defa
 @app.get("/api/health")
 def health() -> dict:
     return {"ok": True}
+
+
+@app.get("/")
+def root() -> dict:
+    return {
+        "service": "ProbloxDev API",
+        "docs": "/docs",
+        "frontend": CONFIG.frontend_url,
+        "health": "/api/health",
+    }

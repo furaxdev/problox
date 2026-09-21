@@ -1,6 +1,5 @@
 -- LeaderboardService : classement global persistant (compétition sociale).
 local DataStoreService = game:GetService("DataStoreService")
-local Players = game:GetService("Players")
 
 local LeaderboardService = {}
 local orderedStore = DataStoreService:GetOrderedDataStore("{{CURRENCY_NAME}}_leaderboard_v1")

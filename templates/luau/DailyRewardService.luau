@@ -1,6 +1,5 @@
 -- DailyRewardService : récompense croissante à la connexion quotidienne (relance J+1).
 local DataStoreService = game:GetService("DataStoreService")
-local Players = game:GetService("Players")
 
 local DailyRewardService = {}
 local rewardStore = DataStoreService:GetDataStore("daily_reward_v1")
