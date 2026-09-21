@@ -5,15 +5,21 @@ services:
   - type: web
     name: probloxdev-api
     runtime: python
-    plan: starter
+    plan: free
     region: frankfurt
     buildCommand: "./scripts/setup_sandbox.sh"
-    startCommand: "uvicorn problox.web:app --host 0.0.0.0 --port $PORT"
+    # Le PATH de build de Render (render-build-tool, etc.) ne doit pas être
+    # écrasé par une variable d'env PATH globale (ça a cassé un déploiement
+    # réel — voir l'historique git). Aftman est donc ajouté au PATH
+    # uniquement pour le process de démarrage, ici. $HOME n'est pas persisté
+    # entre le build et le runtime sur Render (testé en conditions réelles),
+    # d'où AFTMAN_ROOT pointé dans le checkout du repo plutôt que $HOME.
+    startCommand: 'PATH="$AFTMAN_ROOT/bin:$PATH" uvicorn problox.web:app --host 0.0.0.0 --port $PORT'
     envVars:
       - key: PYTHON_VERSION
         value: "3.11.9"
-      - key: PATH
-        value: "/opt/render/.aftman/bin:/usr/local/bin:/usr/bin:/bin"
+      - key: AFTMAN_ROOT
+        value: "/opt/render/project/src/.aftman"
       - key: SESSION_SECRET
         generateValue: true
       - key: ANTHROPIC_API_KEY
@@ -23,7 +29,7 @@ services:
       - key: ROBLOX_OAUTH_CLIENT_SECRET
         sync: false
       - key: ROBLOX_OAUTH_REDIRECT_URI
-        value: "https://probloxdev-api.onrender.com/api/auth/roblox/callback"
+        value: "https://probloxdev-api.onrender.com/api/auth/roblox/callback"  # adapte à l'URL réellement assignée par Render (visible après création)
       - key: FRONTEND_URL
         value: "https://probloxdev.vercel.app"
       - key: ALLOWED_ORIGINS

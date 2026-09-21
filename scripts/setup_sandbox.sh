@@ -6,7 +6,15 @@ set -euo pipefail
 
 echo "== Problox sandbox setup =="
 
-if ! command -v aftman >/dev/null 2>&1; then
+# Sur Render (et toute plateforme "build puis déploie une image à part"),
+# $HOME peut ne pas être persisté entre le build et le runtime — seul le
+# checkout du repo (le cwd ici) l'est de façon fiable. On installe donc
+# Aftman et ses outils dans un dossier du projet plutôt que $HOME, via la
+# variable AFTMAN_ROOT qu'Aftman respecte nativement. En local (CLI/Docker),
+# $HOME fonctionne très bien et reste la valeur par défaut.
+export AFTMAN_ROOT="${AFTMAN_ROOT:-$HOME/.aftman}"
+
+if ! command -v aftman >/dev/null 2>&1 && [ ! -x "$AFTMAN_ROOT/bin/aftman" ]; then
   echo "-- Installation d'Aftman (gestionnaire de version d'outils Roblox) --"
   ARCH="$(uname -m)"
   case "$ARCH" in
@@ -19,13 +27,13 @@ if ! command -v aftman >/dev/null 2>&1; then
     | grep browser_download_url | grep "$AFTMAN_ARCH" | grep '.zip"' | head -n1 | cut -d '"' -f4)
   curl -fsSL "$LATEST_URL" -o "$TMP_DIR/aftman.zip"
   unzip -q "$TMP_DIR/aftman.zip" -d "$TMP_DIR"
-  mkdir -p "$HOME/.aftman/bin"
-  mv "$TMP_DIR/aftman" "$HOME/.aftman/bin/aftman"
-  chmod +x "$HOME/.aftman/bin/aftman"
+  mkdir -p "$AFTMAN_ROOT/bin"
+  mv "$TMP_DIR/aftman" "$AFTMAN_ROOT/bin/aftman"
+  chmod +x "$AFTMAN_ROOT/bin/aftman"
   rm -rf "$TMP_DIR"
 fi
 
-export PATH="$HOME/.aftman/bin:$PATH"
+export PATH="$AFTMAN_ROOT/bin:$PATH"
 
 if [ ! -f aftman.toml ]; then
   cat > aftman.toml <<'EOF'
