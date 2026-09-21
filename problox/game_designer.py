@@ -81,9 +81,100 @@ class GameDesign(BaseModel):
         return self.model_dump()
 
 
+_OBBY_KEYWORDS = ("obby", "parkour", "course", "rush", "runner", "saut")
+_TYCOON_KEYWORDS = ("tycoon", "usine", "empire", "business", "argent", "fabrique", "entreprise")
+_ARENA_KEYWORDS = ("pvp", "arène", "arene", "combat", "bataille", "battle", "duel", "fight")
+
+
+def _pick_archetype(theme: str) -> str:
+    lowered = theme.lower()
+    if any(k in lowered for k in _TYCOON_KEYWORDS):
+        return "tycoon"
+    if any(k in lowered for k in _ARENA_KEYWORDS):
+        return "arena"
+    if any(k in lowered for k in _OBBY_KEYWORDS):
+        return "obby"
+    # Thème générique sans mot-clé reconnu: on fait quand même varier
+    # l'archétype (déterministe sur le thème) plutôt que de toujours
+    # retomber sur le même jeu — c'était le cas avant, tous les designs
+    # fallback produisaient exactement le même code, seul le titre changeait.
+    archetypes = ("obby", "tycoon", "arena")
+    return archetypes[sum(theme.encode()) % len(archetypes)]
+
+
 def _fallback_design(theme: str) -> GameDesign:
+    archetype = _pick_archetype(theme)
+    title = f"{theme.title()} {'Tycoon' if archetype == 'tycoon' else 'Rush' if archetype == 'obby' else 'Arena'}"
+
+    if archetype == "tycoon":
+        return GameDesign(
+            title=title,
+            genre="tycoon",
+            core_loop=(
+                "Le joueur réclame une parcelle libre, des droppers y génèrent des "
+                "Coins en continu, il les collecte au contact puis les dépense en "
+                "boutique pour accélérer sa production ou débloquer des upgrades."
+            ),
+            systems=[
+                GameSystem(name="Currency", description="Coins persistants via DataStoreService"),
+                GameSystem(name="Plot", description="Réclamation de parcelle + droppers générant des Coins en continu"),
+                GameSystem(name="Leaderboard", description="Classement global OrderedDataStore (Coins totaux)"),
+                GameSystem(name="DailyReward", description="Récompense croissante à la connexion quotidienne"),
+                GameSystem(name="Shop", description="Boutique d'upgrades de production contre Coins ou Robux"),
+            ],
+            monetization=Monetization(
+                currency_name="Coins",
+                gamepasses=[
+                    Gamepass(name="2x Production", effect="Double le rendement des droppers", suggested_price_robux=249),
+                    Gamepass(name="Parcelle VIP", effect="Accès à une parcelle premium plus rentable", suggested_price_robux=349),
+                ],
+            ),
+            zones_or_levels=[
+                Zone(name="Parcelles de départ", description="Production de base, premières upgrades accessibles"),
+                Zone(name="Parcelles avancées", description="Débloquées à un palier de Coins cumulés, meilleur rendement"),
+            ],
+            retention_hooks=[
+                "Production qui continue même à faible interaction (retour régulier payant)",
+                "Récompense quotidienne croissante (streak)",
+                "Classement global visible en permanence",
+            ],
+        )
+
+    if archetype == "arena":
+        return GameDesign(
+            title=title,
+            genre="battle royale casual",
+            core_loop=(
+                "Manches courtes (60-90s) en arène réduite: le joueur élimine des "
+                "adversaires ou survit jusqu'à la fin, gagne des Coins selon sa "
+                "performance, puis relance immédiatement une nouvelle manche."
+            ),
+            systems=[
+                GameSystem(name="Currency", description="Coins persistants via DataStoreService"),
+                GameSystem(name="Leaderboard", description="Classement global OrderedDataStore (Coins totaux)"),
+                GameSystem(name="DailyReward", description="Récompense croissante à la connexion quotidienne"),
+                GameSystem(name="Shop", description="Boutique de skins/effets visuels contre Coins ou Robux"),
+            ],
+            monetization=Monetization(
+                currency_name="Coins",
+                gamepasses=[
+                    Gamepass(name="2x Coins", effect="Double les gains de Coins par manche", suggested_price_robux=199),
+                    Gamepass(name="Skin exclusif", effect="Apparence unique en arène", suggested_price_robux=149),
+                ],
+            ),
+            zones_or_levels=[
+                Zone(name="Arène principale", description="Map de manche standard"),
+                Zone(name="Arène événement", description="Variante à rotation limitée dans le temps (FOMO)"),
+            ],
+            retention_hooks=[
+                "Manches très courtes -> relance immédiate sans friction",
+                "Récompense quotidienne croissante (streak)",
+                "Classement global visible en permanence",
+            ],
+        )
+
     return GameDesign(
-        title=f"{theme.title()} Rush",
+        title=title,
         genre="obby + simulator hybride",
         core_loop=(
             "Le joueur court un parcours d'obstacles courts (30-60s), gagne des "

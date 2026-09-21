@@ -77,8 +77,20 @@ def generate(design: GameDesign, out_dir: Path) -> Path:
     )
     (services_dir / "ShopService.luau").write_text(shop)
 
+    is_tycoon = "tycoon" in design.genre.lower()
+    if is_tycoon:
+        (services_dir / "PlotService.luau").write_text(_read_template("PlotService.luau"))
+
+    main_server = _read_template("MainServer.server.luau")
+    main_server = main_server.replace(
+        "{{PLOT_REQUIRE_LINE}}",
+        "local PlotService = require(ServerScriptService.Services.PlotService)\n" if is_tycoon else "",
+    )
+    main_server = main_server.replace(
+        "{{PLOT_CLAIM_LINE}}", "\tPlotService.Claim(player)\n" if is_tycoon else ""
+    )
     server_dir = src_dir / "ServerScriptService"
-    (server_dir / "MainServer.server.luau").write_text(_read_template("MainServer.server.luau"))
+    (server_dir / "MainServer.server.luau").write_text(main_server)
 
     replicated_dir = src_dir / "ReplicatedStorage"
     replicated_dir.mkdir(parents=True, exist_ok=True)

@@ -51,3 +51,33 @@ def test_to_luau_literal_escapes_and_formats():
     assert luau_generator._to_luau_literal({"a": 1, "b": "x\"y"}) == '{a = 1, b = "x\\"y"}'
     assert luau_generator._to_luau_literal([1, "two", True, None]) == '{1, "two", true, nil}'
     assert luau_generator._to_luau_literal({"weird-key": 1}) == '{["weird-key"] = 1}'
+
+
+def test_tycoon_genre_generates_plot_service(tmp_path: Path):
+    design = _sample_design()
+    design.genre = "tycoon"
+    out_dir = tmp_path / "build"
+
+    luau_generator.generate(design, out_dir)
+
+    services_dir = out_dir / "src" / "ServerScriptService" / "Services"
+    assert (services_dir / "PlotService.luau").exists()
+
+    main_server = (out_dir / "src" / "ServerScriptService" / "MainServer.server.luau").read_text()
+    assert "PlotService" in main_server
+    assert "{{PLOT_REQUIRE_LINE}}" not in main_server
+    assert "{{PLOT_CLAIM_LINE}}" not in main_server
+
+
+def test_non_tycoon_genre_skips_plot_service(tmp_path: Path):
+    design = _sample_design()
+    design.genre = "obby"
+    out_dir = tmp_path / "build"
+
+    luau_generator.generate(design, out_dir)
+
+    services_dir = out_dir / "src" / "ServerScriptService" / "Services"
+    assert not (services_dir / "PlotService.luau").exists()
+
+    main_server = (out_dir / "src" / "ServerScriptService" / "MainServer.server.luau").read_text()
+    assert "PlotService" not in main_server
