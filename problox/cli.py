@@ -32,6 +32,17 @@ def run(theme: str, autonomous: bool, max_iterations: int) -> None:
 
 
 @main.command()
+@click.option("--host", default="127.0.0.1", show_default=True)
+@click.option("--port", default=8787, show_default=True, type=int)
+def web(host: str, port: int) -> None:
+    """Lance le site ProbloxDev (dashboard pour piloter l'agent depuis un navigateur)."""
+    import uvicorn
+
+    click.echo(f"ProbloxDev sur http://{host}:{port}")
+    uvicorn.run("problox.web:app", host=host, port=port, log_level="warning")
+
+
+@main.command()
 def check() -> None:
     """Vérifie la config et la présence des outils (rojo/selene/stylua)."""
     import shutil

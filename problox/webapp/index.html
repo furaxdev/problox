@@ -1,0 +1,284 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ProbloxDev</title>
+<style>
+  :root {
+    --bg: #0b0d12;
+    --panel: #12151c;
+    --border: #232733;
+    --text: #e6e8ef;
+    --muted: #8b93a7;
+    --accent: #6c7bff;
+    --ok: #3ecf8e;
+    --warn: #f2b94b;
+    --err: #f2555a;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); }
+  header {
+    padding: 20px 28px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: baseline; gap: 12px;
+  }
+  header h1 { margin: 0; font-size: 20px; letter-spacing: 0.3px; }
+  header h1 span { color: var(--accent); }
+  header .tag { color: var(--muted); font-size: 13px; }
+  main {
+    display: grid;
+    grid-template-columns: 340px 1fr;
+    gap: 20px;
+    padding: 24px 28px;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  @media (max-width: 860px) { main { grid-template-columns: 1fr; } }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px;
+  }
+  .panel + .panel { margin-top: 20px; }
+  .panel h2 {
+    margin: 0 0 14px 0;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: var(--muted);
+  }
+  label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+  input[type=text], input[type=number] {
+    width: 100%;
+    background: #0b0d12;
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 9px 10px;
+    border-radius: 6px;
+    font-size: 14px;
+    margin-bottom: 14px;
+  }
+  .row { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; }
+  .row input[type=checkbox] { width: 16px; height: 16px; }
+  .row label { margin: 0; color: var(--text); font-size: 14px; }
+  button {
+    width: 100%;
+    background: var(--accent);
+    color: white;
+    border: none;
+    padding: 11px 14px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  .status-list { list-style: none; margin: 0; padding: 0; font-size: 13px; }
+  .status-list li { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid var(--border); }
+  .status-list li:last-child { border-bottom: none; }
+  .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
+  .dot.ok { background: var(--ok); }
+  .dot.warn { background: var(--warn); }
+  .dot.err { background: var(--err); }
+  .pill {
+    display: inline-block; font-size: 12px; padding: 2px 9px; border-radius: 99px;
+    border: 1px solid var(--border); color: var(--muted);
+  }
+  .pill.running { color: var(--warn); border-color: var(--warn); }
+  .pill.done { color: var(--ok); border-color: var(--ok); }
+  .pill.error { color: var(--err); border-color: var(--err); }
+  #logs {
+    background: #0b0d12;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px;
+    height: 320px;
+    overflow-y: auto;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12.5px;
+    white-space: pre-wrap;
+    color: #c7cbe0;
+  }
+  #design {
+    background: #0b0d12;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px;
+    max-height: 320px;
+    overflow-y: auto;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12.5px;
+    white-space: pre-wrap;
+    color: #c7cbe0;
+  }
+  a.download {
+    display: inline-block;
+    margin-top: 10px;
+    color: var(--accent);
+    text-decoration: none;
+    font-size: 13px;
+  }
+  .muted { color: var(--muted); font-size: 12.5px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Problox<span>Dev</span></h1>
+  <span class="tag">console de pilotage de l'agent</span>
+</header>
+
+<main>
+  <div>
+    <div class="panel">
+      <h2>Nouveau run</h2>
+      <label for="theme">Thème du jeu</label>
+      <input type="text" id="theme" placeholder="ex: obby simulateur de course" />
+
+      <div class="row">
+        <input type="checkbox" id="autonomous" />
+        <label for="autonomous">Mode autonome (itère plusieurs fois)</label>
+      </div>
+
+      <label for="maxIterations">Itérations max</label>
+      <input type="number" id="maxIterations" value="1" min="1" max="20" />
+
+      <button id="runBtn">Lancer l'agent</button>
+      <p class="muted" id="runHint" style="margin-top:10px"></p>
+    </div>
+
+    <div class="panel">
+      <h2>État de la config</h2>
+      <ul class="status-list" id="configList"></ul>
+    </div>
+
+    <div class="panel">
+      <h2>Toolchain sandbox</h2>
+      <ul class="status-list" id="toolsList"></ul>
+    </div>
+  </div>
+
+  <div>
+    <div class="panel">
+      <h2>
+        Logs
+        <span id="runPill" class="pill" style="float:right">idle</span>
+      </h2>
+      <div id="logs">En attente d'un run…</div>
+    </div>
+
+    <div class="panel">
+      <h2>Dernier design généré</h2>
+      <div id="design">Aucun design pour l'instant.</div>
+      <a class="download" id="downloadLink" href="/api/build/place.rbxlx" style="display:none">
+        ⬇ Télécharger build/place.rbxlx (à ouvrir dans Roblox Studio)
+      </a>
+    </div>
+  </div>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let logOffset = 0;
+let polling = false;
+
+function statusDot(ok) {
+  return `<span class="dot ${ok ? 'ok' : 'err'}"></span>`;
+}
+
+async function refreshStatus() {
+  const res = await fetch('/api/status');
+  const data = await res.json();
+
+  const configList = $('configList');
+  configList.innerHTML = `
+    <li>${statusDot(data.config.anthropic_ready)}Claude (design créatif)<span>${data.config.anthropic_ready ? 'prêt' : 'manquant'}</span></li>
+    <li>${statusDot(data.config.roblox_ready)}Roblox Open Cloud<span>${data.config.roblox_ready ? 'prêt' : 'incomplet'}</span></li>
+  `;
+  if (!data.config.roblox_ready && data.config.missing_roblox_vars.length) {
+    configList.innerHTML += `<li class="muted" style="border:none">manque: ${data.config.missing_roblox_vars.join(', ')}</li>`;
+  }
+
+  const toolsList = $('toolsList');
+  toolsList.innerHTML = Object.entries(data.tools)
+    .map(([name, ok]) => `<li>${statusDot(ok)}${name}<span>${ok ? 'trouvé' : 'absent'}</span></li>`)
+    .join('');
+
+  const pill = $('runPill');
+  pill.textContent = data.run.status;
+  pill.className = 'pill ' + data.run.status;
+
+  const runBtn = $('runBtn');
+  const running = data.run.status === 'running';
+  runBtn.disabled = running;
+  runBtn.textContent = running ? `En cours: ${data.run.theme}…` : "Lancer l'agent";
+  $('runHint').textContent = data.run.error ? `Erreur: ${data.run.error}` : '';
+
+  $('downloadLink').style.display = data.build_available ? 'inline-block' : 'none';
+
+  return data.run.status;
+}
+
+async function refreshLogs() {
+  const res = await fetch(`/api/logs?offset=${logOffset}`);
+  const data = await res.json();
+  if (data.lines.length) {
+    const box = $('logs');
+    if (logOffset === 0) box.textContent = '';
+    box.textContent += data.lines.join('\n') + '\n';
+    box.scrollTop = box.scrollHeight;
+  }
+  logOffset = data.offset;
+}
+
+async function refreshDesign() {
+  const res = await fetch('/api/design');
+  if (res.status === 404) return;
+  const data = await res.json();
+  $('design').textContent = JSON.stringify(data, null, 2);
+}
+
+async function tick() {
+  const status = await refreshStatus();
+  await refreshLogs();
+  if (status === 'done' || status === 'error') {
+    await refreshDesign();
+  }
+}
+
+async function poll() {
+  if (polling) return;
+  polling = true;
+  while (true) {
+    await tick();
+    await new Promise(r => setTimeout(r, 1500));
+  }
+}
+
+$('runBtn').addEventListener('click', async () => {
+  const theme = $('theme').value.trim();
+  if (!theme) { $('theme').focus(); return; }
+  logOffset = 0;
+  $('logs').textContent = '';
+  const res = await fetch('/api/run', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      theme,
+      autonomous: $('autonomous').checked,
+      max_iterations: parseInt($('maxIterations').value, 10) || 1,
+    }),
+  });
+  if (!res.ok) {
+    const err = await res.json();
+    $('runHint').textContent = err.detail || 'Erreur inconnue';
+  }
+});
+
+refreshDesign();
+poll();
+</script>
+</body>
+</html>

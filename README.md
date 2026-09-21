@@ -1,12 +1,13 @@
-# Problox
+# ProbloxDev
 
 Un agent IA autonome qui tourne dans un sandbox Debian, pilote un compte Roblox
 via l'**Open Cloud API**, et fabrique une expérience Roblox complète (place +
 scripts Luau + boucle de progression/monétisation) en autonomie : conception du
 game design, génération du code, synchronisation vers Roblox Studio (via Rojo),
-et publication.
+et publication. Piloté soit en CLI, soit depuis le **site ProbloxDev**
+(dashboard local, voir plus bas).
 
-> ⚠️ Problox ne peut **pas** deviner tes identifiants. Il lui faut une clé
+> ⚠️ ProbloxDev ne peut **pas** deviner tes identifiants. Il lui faut une clé
 > Open Cloud API et un `UNIVERSE_ID`/`PLACE_ID` que **toi seul** peux créer
 > depuis le Creator Dashboard Roblox (voir "Mise en route" ci-dessous). Sans
 > ça, l'agent tourne en mode "dry-run" : il génère tout le jeu sur disque mais
@@ -23,7 +24,9 @@ problox/
   roblox_cloud.py       # client Open Cloud API (publish place, manage universe, DataStores)
   state.py               # mémoire persistante de l'agent entre les runs (JSON)
   orchestrator.py         # boucle autonome: design -> code -> sync -> publish -> itère
-  cli.py                   # `problox run`, `problox design`, `problox publish`
+  cli.py                   # `problox run`, `problox web`, `problox check`
+  web.py                    # API FastAPI du site ProbloxDev (statut, run, logs, design, build)
+  webapp/index.html          # UI du site (une page, vanilla JS, pas de build step)
 templates/luau/            # briques de gameplay réutilisables (voir plus bas)
 docker/Dockerfile           # sandbox Debian avec Rojo, Aftman, Wally, Selene, StyLua, Python
 scripts/setup_sandbox.sh     # installe la toolchain Roblox dans le sandbox
@@ -76,6 +79,22 @@ Sans `.env` rempli, `problox run` génère quand même tout le projet Rojo dans
 `build/` (place buildable en local dans Studio) mais saute l'étape de
 publication Open Cloud et te dit exactement quoi faire pour publier
 toi-même.
+
+## Le site ProbloxDev
+
+Un dashboard local pour piloter l'agent sans taper de commandes : thème du
+jeu, mode autonome, logs en direct, dernier design généré (JSON), et
+téléchargement du `.rbxlx` buildé.
+
+```bash
+pip install -e .
+problox web            # http://127.0.0.1:8787
+```
+
+C'est un serveur local (FastAPI + une page HTML/JS sans build step) qui
+tourne dans ton sandbox et pilote le même `orchestrator.py` que la CLI — pas
+de service tiers, pas d'exposition publique par défaut (`--host` si tu veux
+l'ouvrir sur le réseau, à tes risques).
 
 ## Sécurité & ToS
 

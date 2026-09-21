@@ -9,6 +9,8 @@ dependencies = [
     "pydantic>=2.7.0",
     "click>=8.1.0",
     "python-dotenv>=1.0.0",
+    "fastapi>=0.115.0",
+    "uvicorn>=0.30.0",
 ]
 
 [project.scripts]
@@ -20,3 +22,6 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 include = ["problox*"]
+
+[tool.setuptools.package-data]
+problox = ["webapp/*.html", "webapp/assets/*"]
