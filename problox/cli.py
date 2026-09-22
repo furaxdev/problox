@@ -57,6 +57,7 @@ def check() -> None:
 
     config = load_config()
     click.echo(f"Anthropic API key: {'OK' if config.has_anthropic_credentials else 'manquante'}")
+    click.echo(f"Groq API key (repli gratuit): {'OK' if config.has_groq_credentials else 'manquante'}")
     click.echo(f"Roblox Open Cloud: {'OK' if config.has_roblox_credentials else 'incomplet (' + ', '.join(config.missing_roblox_vars()) + ')'}")
     for tool in ("rojo", "selene", "stylua", "aftman", "wally"):
         click.echo(f"{tool}: {'trouvé' if shutil.which(tool) else 'absent'}")

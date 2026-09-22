@@ -2,6 +2,16 @@ from unittest.mock import MagicMock, patch
 
 from problox import game_designer
 
+_FAKE_GROQ_DESIGN = {
+    "title": "Ice Dungeon Rush",
+    "genre": "obby",
+    "core_loop": "Boucle de test générée par Groq",
+    "systems": [{"name": "Currency", "description": "Coins"}],
+    "monetization": {"currency_name": "Coins", "gamepasses": []},
+    "zones_or_levels": [{"name": "Zone 1", "description": "..."}],
+    "retention_hooks": ["Daily reward"],
+}
+
 
 def test_fallback_picks_tycoon_from_keyword():
     d = game_designer.design("usine a coins", None)
@@ -52,3 +62,38 @@ def test_design_falls_back_on_malformed_json_response():
 
     assert d.genre == "tycoon"
     assert any("Claude a échoué" in line for line in logs)
+
+
+def test_design_uses_groq_when_no_anthropic_key():
+    fake_response = MagicMock(status_code=200, json=lambda: {"choices": [{"message": {"content": __import__("json").dumps(_FAKE_GROQ_DESIGN)}}]})
+    with patch("problox.game_designer.httpx.post", return_value=fake_response) as mock_post:
+        d = game_designer.design("ice dungeon", None, groq_api_key="fake-groq-key")
+
+    assert d.title == "Ice Dungeon Rush"
+    assert mock_post.called
+
+
+def test_design_falls_back_to_groq_when_anthropic_fails():
+    logs: list[str] = []
+    fake_response = MagicMock(status_code=200, json=lambda: {"choices": [{"message": {"content": __import__("json").dumps(_FAKE_GROQ_DESIGN)}}]})
+    with patch("problox.game_designer.Anthropic") as MockAnthropic, patch(
+        "problox.game_designer.httpx.post", return_value=fake_response
+    ):
+        MockAnthropic.return_value.messages.create.side_effect = RuntimeError("plus de crédit")
+        d = game_designer.design("ice dungeon", "fake-api-key", groq_api_key="fake-groq-key", log=logs.append)
+
+    assert d.title == "Ice Dungeon Rush"
+    assert any("Claude a échoué" in line for line in logs)
+
+
+def test_design_falls_back_to_static_when_both_llms_fail():
+    logs: list[str] = []
+    fake_response = MagicMock(status_code=500, text="server error")
+    with patch("problox.game_designer.Anthropic") as MockAnthropic, patch(
+        "problox.game_designer.httpx.post", return_value=fake_response
+    ):
+        MockAnthropic.return_value.messages.create.side_effect = RuntimeError("boom")
+        d = game_designer.design("obby de test", "fake-api-key", groq_api_key="fake-groq-key", log=logs.append)
+
+    assert d.genre == "obby + simulator hybride"
+    assert any("Groq a échoué" in line for line in logs)

@@ -414,6 +414,7 @@ def status(response: Response, problox_session: str | None = Cookie(default=None
         "run": {"status": session.run_status, "theme": session.run_theme, "error": session.run_error},
         "config": {
             "anthropic_ready": CONFIG.has_anthropic_credentials,
+            "groq_ready": CONFIG.has_groq_credentials,
             "oauth_configured": CONFIG.has_oauth_app,
             "roblox_connected": session.connected,
         },

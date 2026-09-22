@@ -16,6 +16,9 @@ class Config:
     roblox_universe_id: str | None
     roblox_place_id: str | None
     anthropic_api_key: str | None
+    # Repli gratuit (pas de carte bancaire) quand ANTHROPIC_API_KEY est absent
+    # ou à court de crédit — voir game_designer._design_via_groq.
+    groq_api_key: str | None = None
     # OAuth app (mode web multi-utilisateurs — voir roblox_oauth.py). Un seul
     # jeu de credentials pour tout ProbloxDev ; chaque visiteur du site
     # connecte ensuite son propre compte Roblox via ces credentials.
@@ -33,6 +36,14 @@ class Config:
     @property
     def has_anthropic_credentials(self) -> bool:
         return bool(self.anthropic_api_key)
+
+    @property
+    def has_groq_credentials(self) -> bool:
+        return bool(self.groq_api_key)
+
+    @property
+    def has_any_llm_credentials(self) -> bool:
+        return self.has_anthropic_credentials or self.has_groq_credentials
 
     def missing_roblox_vars(self) -> list[str]:
         missing = []
@@ -56,6 +67,7 @@ def load_config() -> Config:
         roblox_universe_id=os.environ.get("ROBLOX_UNIVERSE_ID") or None,
         roblox_place_id=os.environ.get("ROBLOX_PLACE_ID") or None,
         anthropic_api_key=os.environ.get("ANTHROPIC_API_KEY") or None,
+        groq_api_key=os.environ.get("GROQ_API_KEY") or None,
         roblox_oauth_client_id=os.environ.get("ROBLOX_OAUTH_CLIENT_ID") or None,
         roblox_oauth_client_secret=os.environ.get("ROBLOX_OAUTH_CLIENT_SECRET") or None,
         roblox_oauth_redirect_uri=os.environ.get("ROBLOX_OAUTH_REDIRECT_URI") or None,

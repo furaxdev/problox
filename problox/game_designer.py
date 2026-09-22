@@ -13,8 +13,12 @@ import json
 from collections.abc import Callable
 from typing import Any
 
+import httpx
 from anthropic import Anthropic
 from pydantic import BaseModel, Field
+
+GROQ_BASE_URL = "https://api.groq.com/openai/v1"
+GROQ_MODEL = "llama-3.3-70b-versatile"
 
 SYSTEM_PROMPT = """Tu es un game designer senior spécialisé Roblox. Tu conçois
 des boucles de jeu à forte rétention (mécaniques éprouvées : progression
@@ -209,39 +213,76 @@ def _fallback_design(theme: str) -> GameDesign:
     )
 
 
+def _build_user_prompt(theme: str, previous: dict | None) -> str:
+    prompt = (
+        f"Thème demandé : {theme}\n\n"
+        f"Schéma JSON attendu :\n{json.dumps(SCHEMA_HINT, ensure_ascii=False, indent=2)}\n\n"
+    )
+    if previous:
+        prompt += (
+            "Design précédent (itère dessus, améliore la rétention et ajoute UNE "
+            f"nouvelle mécanique cohérente) :\n{json.dumps(previous, ensure_ascii=False)}\n"
+        )
+    return prompt
+
+
+def _design_via_anthropic(theme: str, api_key: str, previous: dict | None) -> GameDesign:
+    client = Anthropic(api_key=api_key)
+    response = client.messages.create(
+        model="claude-opus-5",
+        max_tokens=2000,
+        system=SYSTEM_PROMPT,
+        messages=[{"role": "user", "content": _build_user_prompt(theme, previous)}],
+    )
+    text = "".join(block.text for block in response.content if block.type == "text")
+    return GameDesign.model_validate(json.loads(text))
+
+
+def _design_via_groq(theme: str, api_key: str, previous: dict | None) -> GameDesign:
+    """Repli gratuit (pas de carte bancaire requise) quand Anthropic n'est pas
+    configuré ou n'a plus de crédit — API compatible OpenAI, JSON forcé via
+    response_format."""
+    response = httpx.post(
+        f"{GROQ_BASE_URL}/chat/completions",
+        headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+        json={
+            "model": GROQ_MODEL,
+            "messages": [
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": _build_user_prompt(theme, previous)},
+            ],
+            "response_format": {"type": "json_object"},
+            "temperature": 0.7,
+        },
+        timeout=60.0,
+    )
+    if response.status_code >= 400:
+        raise RuntimeError(f"Groq API error ({response.status_code}): {response.text}")
+    data = response.json()
+    text = data["choices"][0]["message"]["content"]
+    return GameDesign.model_validate(json.loads(text))
+
+
 def design(
     theme: str,
     anthropic_api_key: str | None,
     previous: dict | None = None,
     log: Callable[[str], None] = lambda _msg: None,
+    groq_api_key: str | None = None,
 ) -> GameDesign:
-    if not anthropic_api_key:
-        return _fallback_design(theme)
+    if anthropic_api_key:
+        try:
+            return _design_via_anthropic(theme, anthropic_api_key, previous)
+        except Exception as exc:  # noqa: BLE001 - un run public ne doit pas mourir sur un aléa d'API
+            log(f"Claude a échoué ({exc.__class__.__name__}: {exc}) — tentative de repli.")
 
-    client = Anthropic(api_key=anthropic_api_key)
-    user_prompt = (
-        f"Thème demandé : {theme}\n\n"
-        f"Schéma JSON attendu :\n{json.dumps(SCHEMA_HINT, ensure_ascii=False, indent=2)}\n\n"
-    )
-    if previous:
-        user_prompt += (
-            "Design précédent (itère dessus, améliore la rétention et ajoute UNE "
-            f"nouvelle mécanique cohérente) :\n{json.dumps(previous, ensure_ascii=False)}\n"
-        )
+    if groq_api_key:
+        try:
+            return _design_via_groq(theme, groq_api_key, previous)
+        except Exception as exc:  # noqa: BLE001 - idem, Groq est déjà le plan B
+            log(f"Groq a échoué ({exc.__class__.__name__}: {exc}) — repli sur le design starter kit.")
 
-    try:
-        response = client.messages.create(
-            model="claude-opus-5",
-            max_tokens=2000,
-            system=SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": user_prompt}],
-        )
-        text = "".join(block.text for block in response.content if block.type == "text")
-        data = json.loads(text)
-        return GameDesign.model_validate(data)
-    except Exception as exc:  # noqa: BLE001 - un run public ne doit pas mourir sur un aléa d'API
-        log(
-            f"Claude a échoué ({exc.__class__.__name__}: {exc}) — repli sur le "
-            "design starter kit pour cette itération."
-        )
-        return _fallback_design(theme)
+    if not anthropic_api_key and not groq_api_key:
+        log("Aucune clé LLM configurée (ANTHROPIC_API_KEY / GROQ_API_KEY) — design starter kit.")
+
+    return _fallback_design(theme)

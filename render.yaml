@@ -24,6 +24,8 @@ services:
         generateValue: true
       - key: ANTHROPIC_API_KEY
         sync: false
+      - key: GROQ_API_KEY
+        sync: false
       - key: ROBLOX_OAUTH_CLIENT_ID
         sync: false
       - key: ROBLOX_OAUTH_CLIENT_SECRET
