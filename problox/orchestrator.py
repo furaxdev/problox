@@ -75,7 +75,14 @@ def run(
                 state.last_place_version = version
                 log(f"Publié sur Roblox — version {version}")
             except roblox_cloud.RobloxCloudError as exc:
-                log(f"ERREUR: échec de publication: {exc}")
+                hint = ""
+                if "401" in str(exc) or "403" in str(exc):
+                    hint = (
+                        " (401/403 avec un token OAuth: l'API Roblox de publication de "
+                        "place ne documente que l'auth par clé API, pas OAuth — voir "
+                        "docs/OAUTH_SETUP.md. Le build reste disponible en téléchargement.)"
+                    )
+                log(f"ERREUR: échec de publication: {exc}{hint}")
         else:
             missing = config.missing_roblox_vars()
             log(
