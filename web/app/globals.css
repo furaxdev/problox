@@ -149,6 +149,50 @@ a { color: var(--accent); }
 }
 .chip:hover { color: var(--text); border-color: #34343a; }
 
+.hero-logo {
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  margin: 0 auto 20px;
+  display: block;
+  box-shadow: 0 0 0 1px var(--border), 0 12px 32px rgba(124, 108, 255, 0.25);
+}
+
+/* ---------- sections marketing (landing) ---------- */
+
+.section { max-width: 1040px; margin: 0 auto; padding: 0 20px 80px; }
+.section-title {
+  text-align: center;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--muted);
+  margin-bottom: 32px;
+}
+
+.features-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+@media (max-width: 760px) { .features-grid { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 520px) { .features-grid { grid-template-columns: 1fr; } }
+
+.feature-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+}
+.feature-card .emoji { font-size: 22px; margin-bottom: 10px; display: block; }
+.feature-card h3 { margin: 0 0 6px; font-size: 15px; }
+.feature-card p { margin: 0; color: var(--muted); font-size: 13.5px; line-height: 1.5; }
+
+.screenshot-frame {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 10px;
+  background: linear-gradient(180deg, rgba(124, 108, 255, 0.08), rgba(124, 108, 255, 0));
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
+}
+.screenshot-frame img { display: block; width: 100%; border-radius: 8px; border: 1px solid var(--border); }
+
 /* ---------- composer (input façon v0.dev) ---------- */
 
 .composer-wrap {

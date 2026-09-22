@@ -1,8 +1,19 @@
-import { redirect } from "next/navigation";
+"use client";
 
-// L'ancien dashboard en panneaux a été fusionné dans la page d'accueil
-// (interface chat façon v0.dev/emergent.sh) — on garde cette route en
-// redirection pour ne pas casser un lien existant.
-export default function DashboardRedirect() {
-  redirect("/");
+import { Suspense } from "react";
+import { useSearchParams } from "next/navigation";
+import { ChatApp } from "@/components/ChatApp";
+
+function DashboardInner() {
+  const searchParams = useSearchParams();
+  const theme = searchParams.get("theme") || undefined;
+  return <ChatApp initialTheme={theme} />;
+}
+
+export default function DashboardPage() {
+  return (
+    <Suspense fallback={null}>
+      <DashboardInner />
+    </Suspense>
+  );
 }
