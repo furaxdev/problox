@@ -38,3 +38,28 @@ services:
       - key: ALLOWED_ORIGINS
         value: "https://probloxdev.vercel.app"
     healthCheckPath: /api/health
+
+  # Bot Discord Hermès (voir docs/HERMES_BOT.md). Contrairement au service web
+  # ci-dessus, Render n'a pas de plan gratuit pour les "Background Workers" —
+  # il faut au minimum le plan "starter" payant pour un process qui tourne en
+  # continu (un bot Discord maintient une connexion websocket permanente, pas
+  # de requêtes HTTP ponctuelles). Désactive/supprime ce bloc tant que tu n'as
+  # pas de credentials Discord/DeepSeek et que tu ne veux pas payer ce service.
+  - type: worker
+    name: probloxdev-hermes-bot
+    runtime: python
+    plan: starter
+    region: frankfurt
+    buildCommand: "pip install -e '.[hermes]'"
+    startCommand: "problox hermes"
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11.9"
+      - key: DISCORD_BOT_TOKEN
+        sync: false
+      - key: DEEPSEEK_API_KEY
+        sync: false
+      - key: HERMES_ADMIN_USER_IDS
+        sync: false
+      - key: HERMES_ALLOWED_GUILD_IDS
+        sync: false

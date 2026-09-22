@@ -3,6 +3,8 @@
 build/
 sessions/
 .problox_state.json
+hermes_memory/
+hermes_builds/
 __pycache__/
 *.pyc
 .venv/

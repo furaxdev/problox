@@ -34,6 +34,7 @@ problox/
   cli.py                     # `problox run`, `problox web`, `problox check`
   web.py                      # backend FastAPI (sessions, OAuth, run, logs, design, build)
   webapp/index.html            # dashboard local minimal (mode CLI/local uniquement)
+  hermes_bot/                   # bot Discord IA (DeepSeek + outils: web, code sandboxé, sous-agents, génération de jeux) — extra optionnel `hermes`
 web/                              # frontend Next.js déployé sur Vercel (le "site ProbloxDev")
 templates/luau/                    # briques de gameplay réutilisables (voir plus bas)
 docker/Dockerfile                   # sandbox Debian avec Rojo, Aftman, Wally, Selene, StyLua, Python
@@ -44,6 +45,7 @@ docs/TOOLS.md                              # comparatif des meilleurs outils ope
 docs/ARCHITECTURE.md                        # détail de la boucle de l'agent
 docs/OAUTH_SETUP.md                          # créer l'app OAuth Roblox (étape humaine, une fois)
 docs/DEPLOY.md                                # déployer web/ sur Vercel + backend sur Render
+docs/HERMES_BOT.md                             # créer/configurer/déployer le bot Discord Hermès
 ```
 
 ## Boucle "hyper addictive" générée par défaut

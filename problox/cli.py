@@ -43,6 +43,14 @@ def web(host: str, port: int) -> None:
 
 
 @main.command()
+def hermes() -> None:
+    """Lance le bot Discord Hermès (nécessite l'extra `hermes` installé)."""
+    from problox.hermes_bot.bot import main as hermes_main
+
+    hermes_main()
+
+
+@main.command()
 def check() -> None:
     """Vérifie la config et la présence des outils (rojo/selene/stylua)."""
     import shutil
