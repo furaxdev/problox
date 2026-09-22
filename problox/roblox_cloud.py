@@ -88,6 +88,68 @@ class RobloxCloudClient:
             raise RobloxCloudError(f"Get universe failed ({response.status_code}): {response.text}")
         return response.json()
 
+    def execute_luau(self, place_version: int, script: str, timeout_seconds: float = 30.0) -> "LuauExecutionResult":
+        """Exécute un script Luau à distance sur une version publiée de la
+        place, sans Studio (headless) — sert de "smoke test" après
+        publication : pas de garantie de fonctionnement du jeu, juste une
+        vérification que le serveur démarre et que le script s'exécute sans
+        lever d'erreur. Nécessite le scope Open Cloud
+        `universe.place.luau-execution-session:write`.
+        """
+        self._throttle()
+        create_url = (
+            f"{BASE_URL}/cloud/v2/universes/{self.universe_id}/places/{self.place_id}"
+            f"/versions/{place_version}/luau-execution-sessions"
+        )
+        response = httpx.post(
+            create_url,
+            headers=self._headers(),
+            json={"script": script, "timeout": f"{int(timeout_seconds)}s"},
+            timeout=30.0,
+        )
+        if response.status_code >= 400:
+            raise RobloxCloudError(f"Luau execution failed to start ({response.status_code}): {response.text}")
+        session = response.json()
+        session_path = session.get("path")
+        if not session_path:
+            raise RobloxCloudError(f"Réponse Luau execution inattendue: {session}")
+
+        deadline = time.monotonic() + timeout_seconds + 10.0
+        while time.monotonic() < deadline:
+            self._throttle()
+            poll = httpx.get(f"{BASE_URL}/cloud/v2/{session_path}", headers=self._headers(), timeout=30.0)
+            if poll.status_code >= 400:
+                raise RobloxCloudError(f"Luau execution poll failed ({poll.status_code}): {poll.text}")
+            data = poll.json()
+            state = data.get("state")
+            if state in ("COMPLETE", "FAILED", "STATE_UNSPECIFIED"):
+                return LuauExecutionResult.from_response(data)
+            time.sleep(1.5)
+        raise RobloxCloudError("Luau execution: délai dépassé en attendant le résultat")
+
+
+class LuauExecutionResult:
+    def __init__(self, state: str, error: str | None, output_lines: list[str]):
+        self.state = state
+        self.error = error
+        self.output_lines = output_lines
+
+    @property
+    def success(self) -> bool:
+        return self.state == "COMPLETE" and not self.error
+
+    @classmethod
+    def from_response(cls, data: dict) -> "LuauExecutionResult":
+        state = data.get("state", "STATE_UNSPECIFIED")
+        error = None
+        err = data.get("error")
+        if err:
+            error = err.get("message") or str(err)
+        output_lines = [
+            entry.get("message", "") for entry in (data.get("output", {}) or {}).get("results", [])
+        ]
+        return cls(state=state, error=error, output_lines=output_lines)
+
 
 def list_universe_places(bearer_token: str, universe_id: str) -> list[dict]:
     """Liste les places d'un univers (nécessaire car OAuth n'autorise que

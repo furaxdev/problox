@@ -74,6 +74,7 @@ def run(
                 version = client.publish_place(rbxlx_path)
                 state.last_place_version = version
                 log(f"Publié sur Roblox — version {version}")
+                _run_smoke_test(client, version, log)
             except roblox_cloud.RobloxCloudError as exc:
                 hint = ""
                 if "401" in str(exc) or "403" in str(exc):
@@ -95,3 +96,37 @@ def run(
         state.save(state_path)
 
     log(f"Terminé. Itération courante: {state.iteration}")
+
+
+_SMOKE_TEST_SCRIPT = """
+local ServerScriptService = game:GetService("ServerScriptService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local services = ServerScriptService:FindFirstChild("Services")
+local gameDesign = ReplicatedStorage:FindFirstChild("GameDesign")
+if services and gameDesign then
+    print("SMOKE_OK")
+else
+    print("SMOKE_FAIL: services=" .. tostring(services ~= nil) .. " gameDesign=" .. tostring(gameDesign ~= nil))
+end
+"""
+
+
+def _run_smoke_test(client: roblox_cloud.RobloxCloudClient, version: int, log: Callable[[str], None]) -> None:
+    """Exécute un test headless (sans Studio) sur la version publiée, via
+    l'API Open Cloud Luau Execution Session — vérifie juste que le serveur
+    démarre et que la hiérarchie attendue existe, pas que le jeu est
+    "amusant". Best-effort : un échec ici (scope manquant, timeout) ne fait
+    pas échouer le run, juste un avertissement loggé."""
+    try:
+        result = client.execute_luau(version, _SMOKE_TEST_SCRIPT)
+    except roblox_cloud.RobloxCloudError as exc:
+        log(f"Smoke test non exécuté: {exc}")
+        return
+
+    output = " | ".join(result.output_lines) or "(pas de sortie)"
+    if result.success and "SMOKE_OK" in output:
+        log(f"Smoke test: OK ({output})")
+    elif result.error:
+        log(f"Smoke test: échec — {result.error}")
+    else:
+        log(f"Smoke test: résultat inattendu — {output}")
