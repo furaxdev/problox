@@ -434,6 +434,8 @@ a { color: var(--accent); }
   color: var(--text);
 }
 .project-name:hover { background: var(--surface-2); }
+.project-name.active { color: var(--accent); background: var(--accent-dim); }
+.project-actions { display: flex; align-items: center; gap: 2px; }
 
 .chat-item {
   display: flex;

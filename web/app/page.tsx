@@ -117,11 +117,13 @@ export default function Home() {
   const [chats, setChats] = useState<ChatRecord[]>([]);
   const [projects, setProjects] = useState<ProjectRecord[]>([]);
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
+  const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
   const [archived, setArchived] = useState(false);
 
   const offsetRef = useRef(0);
   const pollingRef = useRef(false);
   const activeChatIdRef = useRef<string | null>(null);
+  const activeProjectIdRef = useRef<string | null>(null);
   const conversationEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -144,7 +146,7 @@ export default function Home() {
       id,
       title,
       createdAt: Date.now(),
-      projectId: null,
+      projectId: activeProjectIdRef.current,
       turns: snapshot.map((t) => ({ ...t, logLines: t.logLines.slice(-200) })),
     });
     setChats(loadChats());
@@ -268,21 +270,30 @@ export default function Home() {
     [autonomous, poll, patchLastTurn]
   );
 
-  const handleNewChat = useCallback(() => {
+  const handleNewChat = useCallback((projectId: string | null = null) => {
     activeChatIdRef.current = null;
+    activeProjectIdRef.current = projectId;
     setActiveChatId(null);
+    setActiveProjectId(projectId);
     setTurns([]);
     setArchived(false);
     offsetRef.current = 0;
     if (typeof window !== "undefined" && window.innerWidth < 900) setSidebarOpen(false);
   }, []);
 
+  const handleNewChatInProject = useCallback(
+    (projectId: string) => handleNewChat(projectId),
+    [handleNewChat]
+  );
+
   const handleSelectChat = useCallback(
     (id: string) => {
       const chat = chats.find((c) => c.id === id);
       if (!chat) return;
       activeChatIdRef.current = id;
+      activeProjectIdRef.current = chat.projectId;
       setActiveChatId(id);
+      setActiveProjectId(chat.projectId);
       setTurns(chat.turns);
       setArchived(true);
       if (typeof window !== "undefined" && window.innerWidth < 900) setSidebarOpen(false);
@@ -316,8 +327,13 @@ export default function Home() {
   const busy = turns.length > 0 && turns[turns.length - 1].status === "running";
   const inputDisabled = busy || archived;
 
+  const activeProjectName = projects.find((p) => p.id === activeProjectId)?.name;
+
   const composer = (
     <div className={`composer-wrap ${started ? "" : "floating"}`}>
+      {!archived && activeProjectName && (
+        <p className="composer-hint">📁 Ce chat sera rangé dans le projet « {activeProjectName} »</p>
+      )}
       {archived && (
         <p className="composer-hint" style={{ color: "var(--warn)" }}>
           Conversation archivée (lecture seule) — clique &quot;Nouveau chat&quot; pour continuer.
@@ -372,7 +388,9 @@ export default function Home() {
         chats={chats}
         projects={projects}
         activeChatId={activeChatId}
-        onNewChat={handleNewChat}
+        activeProjectId={activeProjectId}
+        onNewChat={() => handleNewChat()}
+        onNewChatInProject={handleNewChatInProject}
         onSelectChat={handleSelectChat}
         onDeleteChat={handleDeleteChat}
         onCreateProject={handleCreateProject}

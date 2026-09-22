@@ -8,7 +8,9 @@ export function Sidebar({
   chats,
   projects,
   activeChatId,
+  activeProjectId,
   onNewChat,
+  onNewChatInProject,
   onSelectChat,
   onDeleteChat,
   onCreateProject,
@@ -20,7 +22,9 @@ export function Sidebar({
   chats: ChatRecord[];
   projects: ProjectRecord[];
   activeChatId: string | null;
+  activeProjectId: string | null;
   onNewChat: () => void;
+  onNewChatInProject: (projectId: string) => void;
   onSelectChat: (id: string) => void;
   onDeleteChat: (id: string) => void;
   onCreateProject: () => void;
@@ -70,15 +74,24 @@ export function Sidebar({
             )}
             {projects.map((project) => (
               <div key={project.id} className="project-group">
-                <div className="project-name">
+                <div className={`project-name ${activeProjectId === project.id ? "active" : ""}`}>
                   <span>📁 {project.name}</span>
-                  <button
-                    className="icon-btn small ghost"
-                    onClick={() => onDeleteProject(project.id)}
-                    title="Supprimer le projet"
-                  >
-                    ×
-                  </button>
+                  <span className="project-actions">
+                    <button
+                      className="icon-btn small"
+                      onClick={() => onNewChatInProject(project.id)}
+                      title="Nouveau chat dans ce projet"
+                    >
+                      +
+                    </button>
+                    <button
+                      className="icon-btn small ghost"
+                      onClick={() => onDeleteProject(project.id)}
+                      title="Supprimer le projet"
+                    >
+                      ×
+                    </button>
+                  </span>
                 </div>
                 {(chatsByProject.get(project.id) || []).map((chat) => (
                   <ChatItem
