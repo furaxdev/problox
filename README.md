@@ -140,3 +140,23 @@ par Next.js/Vercel — pratique pour un usage strictement local/solo.
 Voir `docs/ARCHITECTURE.md` pour le détail de la boucle autonome,
 `docs/TOOLS.md` pour le comparatif d'outils open source, et
 `docs/DEPLOY.md`/`docs/OAUTH_SETUP.md` pour la mise en prod.
+
+## Contribuer / faire tourner ton propre fork
+
+Aucun secret n'est commité dans ce repo — `.env`/`.env.local` sont
+gitignorés, `render.yaml` ne contient que des références de variables
+(`sync: false`/`generateValue: true`), jamais de vraies valeurs. Si tu forks
+ce projet, il te faut tes propres credentials (voir `.env.example`,
+`web/.env.example`, `docs/OAUTH_SETUP.md`) — ceux utilisés pour l'instance
+de démo ne sont pas dans le code et ne peuvent pas être récupérés depuis
+l'historique git.
+
+Les identifiants de ressources visibles dans `docs/STATUS.md` (IDs de
+service Render, de projet/équipe Vercel) ne sont pas des secrets — ce sont
+de simples identifiants, inutilisables sans la clé API du compte
+correspondant — mais ils sont propres à l'instance de démo de Furax, pas
+à ton fork.
+
+## Licence
+
+[MIT](LICENSE) — fais-en ce que tu veux, sans garantie.
