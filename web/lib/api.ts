@@ -56,4 +56,13 @@ export const api = {
       body: JSON.stringify({ theme, autonomous, max_iterations: maxIterations }),
     }),
   logout: () => apiFetch<{ ok: boolean }>("/api/auth/logout", { method: "POST" }),
+  experiencePlaces: (universeId: string) =>
+    apiFetch<{ places: Array<{ id?: string; placeId?: string; displayName?: string }> }>(
+      `/api/experiences/${universeId}/places`
+    ),
+  selectExperience: (universeId: string, placeId: string) =>
+    apiFetch<{ ok: boolean }>("/api/experiences/select", {
+      method: "POST",
+      body: JSON.stringify({ universe_id: universeId, place_id: placeId }),
+    }),
 };

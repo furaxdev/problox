@@ -1,6 +1,85 @@
 "use client";
 
+import { useState } from "react";
 import { api, Me } from "@/lib/api";
+
+function ExperiencePicker({ me }: { me: Me }) {
+  const [places, setPlaces] = useState<Array<{ id?: string; placeId?: string; displayName?: string }> | null>(
+    null
+  );
+  const [loadingUniverse, setLoadingUniverse] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  if (me.available_universes.length <= 1) return null;
+
+  const loadPlaces = async (universeId: string) => {
+    setLoadingUniverse(universeId);
+    setError("");
+    try {
+      const res = await api.experiencePlaces(universeId);
+      setPlaces(res.places);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erreur inconnue");
+      setPlaces(null);
+    }
+  };
+
+  const select = async (universeId: string, placeId: string) => {
+    setSaving(true);
+    try {
+      await api.selectExperience(universeId, placeId);
+      location.reload();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erreur inconnue");
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="modal-section">
+      <div className="modal-section-title">Expérience ciblée</div>
+      <p className="muted">Tu as autorisé plusieurs expériences — choisis celle que ProbloxDev doit gérer.</p>
+      <div className="experience-list">
+        {me.available_universes.map((u) => {
+          const universeId = String(u.id || u.universeId || "");
+          const isActive = universeId === me.selected_universe_id;
+          const isLoading = loadingUniverse === universeId;
+          return (
+            <div key={universeId} className="experience-item">
+              <button
+                className={`experience-universe ${isActive ? "active" : ""}`}
+                onClick={() => loadPlaces(universeId)}
+              >
+                {u.displayName || u.name || `Univers ${universeId}`}
+                {isActive && <span className="tag">actif</span>}
+              </button>
+              {isLoading && places && (
+                <div className="experience-places">
+                  {places.length === 0 && <p className="muted">Aucune place trouvée.</p>}
+                  {places.map((p) => {
+                    const placeId = String(p.id || p.placeId || "");
+                    return (
+                      <button
+                        key={placeId}
+                        className="btn btn-secondary"
+                        disabled={saving}
+                        onClick={() => select(universeId, placeId)}
+                      >
+                        {p.displayName || `Place ${placeId}`}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+      {error && <p className="error-text">{error}</p>}
+    </div>
+  );
+}
 
 export function SettingsModal({ me, onClose }: { me: Me | null; onClose: () => void }) {
   return (
@@ -40,6 +119,8 @@ export function SettingsModal({ me, onClose }: { me: Me | null; onClose: () => v
             </>
           )}
         </div>
+
+        {me?.connected && <ExperiencePicker me={me} />}
 
         <div className="modal-section">
           <div className="modal-section-title">Modèle</div>

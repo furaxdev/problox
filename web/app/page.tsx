@@ -174,9 +174,26 @@ export default function Home() {
     async (chatId: string, title: string) => {
       if (pollingRef.current) return;
       pollingRef.current = true;
+      let consecutiveFailures = 0;
       try {
         while (true) {
-          const [status, logs] = await Promise.all([api.status(), api.logs(offsetRef.current)]);
+          let status, logs;
+          try {
+            [status, logs] = await Promise.all([api.status(), api.logs(offsetRef.current)]);
+            consecutiveFailures = 0;
+          } catch (err) {
+            consecutiveFailures += 1;
+            // Un raté isolé (réseau, cold start du backend) ne doit pas
+            // planter silencieusement le polling — mais 5 échecs d'affilée
+            // (~10s) veut dire que le backend est vraiment injoignable.
+            if (consecutiveFailures >= 5) {
+              const message = err instanceof Error ? err.message : "Backend injoignable";
+              patchLastTurn({ status: "error", error: `Connexion perdue: ${message}` });
+              break;
+            }
+            await new Promise((r) => setTimeout(r, 1500));
+            continue;
+          }
           if (logs.lines.length) {
             appendLogLines(logs.lines);
             offsetRef.current = logs.offset;

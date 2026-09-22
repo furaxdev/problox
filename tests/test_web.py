@@ -102,3 +102,29 @@ def test_select_experience_requires_connection(client):
         "/api/experiences/select", json={"universe_id": "1", "place_id": "2"}
     )
     assert res.status_code == 401
+
+
+def test_list_experience_places_requires_connection(client):
+    res = client.get("/api/experiences/123/places")
+    assert res.status_code == 401
+
+
+def test_list_experience_places_returns_places_for_connected_session(client, monkeypatch):
+    from problox import roblox_oauth
+
+    session = web._get_or_create_session(None, web.Response())
+    session.tokens = roblox_oauth.TokenSet(access_token="fake", refresh_token=None, expires_at=9999999999)
+
+    monkeypatch.setattr(web, "_oauth_app", lambda: roblox_oauth.OAuthApp("id", "secret", "http://cb"))
+    monkeypatch.setattr(roblox_oauth, "ensure_fresh", lambda app, tokens: tokens)
+    monkeypatch.setattr(
+        web.roblox_cloud,
+        "list_universe_places",
+        lambda token, universe_id: [{"id": "42", "displayName": "Place principale"}],
+    )
+
+    signed = web._serializer.dumps(session.session_id)
+    client.cookies.set(web.COOKIE_NAME, signed)
+    res = client.get("/api/experiences/123/places")
+    assert res.status_code == 200
+    assert res.json() == {"places": [{"id": "42", "displayName": "Place principale"}]}

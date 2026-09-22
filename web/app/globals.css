@@ -531,6 +531,30 @@ a { color: var(--accent); }
 .modal-section-title { font-size: 12.5px; text-transform: uppercase; letter-spacing: 0.4px; color: var(--muted); margin-bottom: 8px; }
 .modal-section p { font-size: 13.5px; line-height: 1.55; margin: 0 0 10px; }
 
+.experience-list { display: flex; flex-direction: column; gap: 6px; }
+.experience-universe {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  padding: 9px 12px;
+  border-radius: 9px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 13px;
+  cursor: pointer;
+}
+.experience-universe.active { border-color: var(--accent); color: var(--accent); }
+.experience-places {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px 4px 4px 12px;
+}
+.experience-places .btn { padding: 6px 10px; font-size: 12px; }
+
 /* ---------- pricing ---------- */
 
 .pricing-wrap { max-width: 980px; margin: 0 auto; padding: 56px 20px 80px; }

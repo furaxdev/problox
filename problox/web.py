@@ -300,6 +300,24 @@ def me(response: Response, problox_session: str | None = Cookie(default=None)) -
     }
 
 
+@app.get("/api/experiences/{universe_id}/places")
+def list_experience_places(
+    universe_id: str,
+    response: Response,
+    problox_session: str | None = Cookie(default=None),
+) -> dict:
+    session = _get_or_create_session(problox_session, response)
+    if not session.connected:
+        raise HTTPException(401, "Connecte d'abord un compte Roblox.")
+    app_ = _oauth_app()
+    try:
+        session.tokens = roblox_oauth.ensure_fresh(app_, session.tokens)
+        places = roblox_cloud.list_universe_places(session.tokens.access_token, universe_id)
+    except (roblox_oauth.RobloxOAuthError, roblox_cloud.RobloxCloudError) as exc:
+        raise HTTPException(502, f"Impossible de lister les places: {exc}") from exc
+    return {"places": places}
+
+
 class SelectExperienceRequest(BaseModel):
     universe_id: str
     place_id: str
