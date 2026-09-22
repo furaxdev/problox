@@ -160,3 +160,7 @@ correspondant — mais ils sont propres à l'instance de démo de Furax, pas
 ## Licence
 
 [MIT](LICENSE) — fais-en ce que tu veux, sans garantie.
+
+## Code de conduite
+
+Ce projet suit le [Contributor Covenant](CODE_OF_CONDUCT.md).
